@@ -13,6 +13,6 @@
     "biome:format": "biome format --write",
     "biome:check": "biome lint --error-on-warnings",
     "frontend:start": "npm run start -w frontend",
-    "backend:start": "npm run start -w backend"
+    "backend:start": "npm run dev -w backend"
   }
 }
