@@ -1,29 +1,31 @@
-import express from 'express'
-import type { Request, Response } from 'express'
+import type { AxiosError, AxiosResponse } from 'axios'
 import axios from 'axios'
-import type { AxiosResponse, AxiosError } from 'axios'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import type { Request, Response } from 'express'
+import express from 'express'
+
+interface RequestRow {
+  inventoryId: string
+  impressions: number
+  deviceType: string
+  rowIdentifier: string
+  utcDatetime: string
+}
+
+// Interface for the basic benchmark request
+interface ApiRequest {
+  channel?: string
+  country?: string
+  ymd?: string
+  rows?: RequestRow[]
+  [key: string]: any // Allow additional properties
+}
 
 // Load environment variables
 dotenv.config()
-
-const app = express()
 const PORT = process.env.PORT || 4000
-
-// Middleware to parse JSON bodies
-app.use(express.json())
-
-// Enable CORS for localhost:3000
-app.use(
-  cors({
-    origin: 'http://localhost:3000',
-  })
-)
-
-// Get API token from environment variables
 const token = process.env.SCOPE3_API_TOKEN
-
 if (!token) {
   console.error('SCOPE3_API_TOKEN environment variable is required')
   console.error('Copy .env.example to .env and add your API token')
@@ -31,13 +33,17 @@ if (!token) {
   process.exit(1)
 }
 
-// Interface for the basic benchmark request
-interface BenchmarkRequest {
-  channel?: string
-  country?: string
-  ymd?: string
-  [key: string]: any // Allow additional properties
-}
+const app = express()
+app.use((req, _res, next) => {
+  console.log(`${req.method} ${req.path}`)
+  next()
+})
+app.use(express.json())
+app.use(
+  cors({
+    origin: 'http://localhost:3000',
+  })
+)
 
 // Helper function to map frontend channels to API parameters
 function mapChannelToApiParams(channel: string): { [key: string]: any } {
@@ -54,14 +60,15 @@ function mapChannelToApiParams(channel: string): { [key: string]: any } {
 // POST /forward - Forward requests to Scope3 API
 app.post(
   '/forward',
-  async (req: Request<{}, any, BenchmarkRequest>, res: Response) => {
+  async (req: Request<{}, any, ApiRequest>, res: Response) => {
     try {
       // Transform the request body to use the proper API parameters
-      const { channel, country, ymd, ...otherParams } = req.body
+      const { channel, country, ymd, rows = [], ...otherParams } = req.body
 
       let apiBody: any = {
         country,
         ymd,
+        rows,
         ...otherParams,
       }
 
@@ -84,11 +91,9 @@ app.post(
 
       // Send back the response from the external API
       res.status(response.status).json(response.data)
-    } catch (error) {
-      console.error('Error forwarding request:', error)
-
-      // Handle error responses
-      if (error && typeof error === 'object' && 'response' in error) {
+    } catch (error: unknown) {
+      console.error('Error forwarding request:', (error as Error).message)
+      if (error && axios.isAxiosError(error)) {
         const axiosError = error as AxiosError
         if (axiosError.response) {
           res.status(axiosError.response.status).json(axiosError.response.data)
@@ -104,7 +109,6 @@ app.post(
 
 // Candidate will add additional endpoints here as needed
 
-// Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`)
@@ -113,5 +117,4 @@ if (process.env.NODE_ENV !== 'test') {
   })
 }
 
-// Export app for testing
 export default app
