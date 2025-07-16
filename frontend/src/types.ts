@@ -7,16 +7,25 @@ export interface BenchmarkDataPoint {
   percentile: number
 }
 
-export interface BenchmarkResponse {
+export interface MeasureResponse {
   benchmarks: BenchmarkDataPoint[]
   requestId: string
 }
 
+interface RequestRow {
+  inventoryId: string
+  impressions: number
+  deviceType: string
+  rowIdentifier: string
+  utcDatetime: string
+}
+
 // Request structure for the /forward endpoint
-export interface BenchmarkRequest {
+export interface MeasureRequest {
   channel?: string
   country?: string
   ymd?: string
+  rows?: RequestRow[]
 }
 
 // Supported channels for this exercise
